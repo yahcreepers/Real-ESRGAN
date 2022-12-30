@@ -74,12 +74,12 @@ CUDA_VISIBLE_DEVICES=$1 python train.py \
 
 ## Result
 
-![截圖 2022-12-30 下午5.08.41](/Users/yahcreeper/Desktop/截圖 2022-12-30 下午5.08.41.png)
+![0](./img/comparison/0.png)
 
-![截圖 2022-12-30 下午5.08.49](/Users/yahcreeper/Desktop/截圖 2022-12-30 下午5.08.49.png)
+![1](./img/comparison/1.png)
 
-![截圖 2022-12-30 下午5.08.56](/Users/yahcreeper/Desktop/截圖 2022-12-30 下午5.08.56.png)
+![2](./img/comparison/2.png)
 
-![截圖 2022-12-30 下午5.09.35](/Users/yahcreeper/Desktop/截圖 2022-12-30 下午5.09.35.png)
+![3](./img/comparison/3.png)
 
-![截圖 2022-12-30 下午5.09.54](/Users/yahcreeper/Desktop/截圖 2022-12-30 下午5.09.54.png)
+![4](./img/comparison/4.png)
