@@ -2,8 +2,9 @@
 
 ## Overview
 
-- This is a pytorch-lightning version of Real-ESRGAN.
+- This is a pytorch-lightning version of [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN).
 - You can reproduce the outcome by the following steps.
+- Reference: [Real-ESRGAN: Training Real-World Blind Super-Resolution with Pure Synthetic Data](https://arxiv.org/pdf/2107.10833.pdf)
 
 ## How to use
 
