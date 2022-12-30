@@ -141,35 +141,35 @@ def poisson_noise(hr, scale_range, gray_prob):
     hr = noise + hr
     hr = torch.clamp(hr, 0, 1)
     return hr
-
+conunt = 0
 def high_order_degradation(hr, jpeger, sinc_prob1=0.1, sinc_prob2=0.1, resize_prob1=[0.15, 1.5], resize_prob2=[0.3, 1.2], gaussian_noise_prob1=0.5, gaussian_noise_prob2=0.5, sigma_range1=[1, 30], sigma_range2=[1, 25], scale_range1=[0.05, 3], scale_range2=[0.05, 2.5], gray_prob1=0.4, gray_prob2=0.4, jpeg_range1=[30, 95], jpeg_range2=[30, 95]):
     ori_h, ori_w = hr.shape[2:4]
-    
+    global conunt
     #Blur
     if np.random.uniform() < sinc_prob1:
         hr = sinc(hr)
     else:
         kernel = random.choice([2 * i + 1 for i in range(3, 11)])
         hr = transforms.functional.gaussian_blur(hr, kernel)
-    #save_image(hr, 'blur.png')
+    #save_image(hr, f'./img/high_order_imm/{conunt}_blur.png')
     
     #Resize
     scale = np.random.uniform(resize_prob1[0], resize_prob1[1])
     mode = random.choice(['area', 'bilinear', 'bicubic'])
     hr = F.interpolate(hr, scale_factor=scale, mode=mode)
-    #save_image(hr, 'resize.png')
+    #save_image(hr, f'./img/high_order_imm/{conunt}_resize.png')
     
     #Add Noise
     if np.random.uniform() < gaussian_noise_prob1:
         hr = gaussian_noise(hr, sigma_range1, gray_prob1)
     else:
         hr = poisson_noise(hr, scale_range1, gray_prob1)
-    #save_image(hr, 'noise.png')
+    #save_image(hr, f'./img/high_order_imm/{conunt}_noise.png')
     
     #JPEG
     jpeg_p = hr.new_zeros(hr.shape[0]).uniform_(*jpeg_range1)
     hr = jpeger(hr, quality=jpeg_p)
-    #save_image(hr, 'jpeg.png')
+    #save_image(hr, f'./img/high_order_imm/{conunt}_jpeg.png')
     
     #Blur
     kernel = random.choice([2 * i + 1 for i in range(3, 11)])
@@ -178,20 +178,20 @@ def high_order_degradation(hr, jpeger, sinc_prob1=0.1, sinc_prob2=0.1, resize_pr
     else:
         kernel = random.choice([2 * i + 1 for i in range(3, 11)])
         hr = transforms.functional.gaussian_blur(hr, kernel)
-    #save_image(hr, 'blur2.png')
+    #save_image(hr, f'./img/high_order_imm/{conunt}_blur2.png')
     
     #Resize
     scale = np.random.uniform(resize_prob2[0], resize_prob2[1])
     mode = random.choice(['area', 'bilinear', 'bicubic'])
     hr = F.interpolate(hr, scale_factor=scale, mode=mode)
-    #save_image(hr, 'resize2.png')
+    #save_image(hr, f'./img/high_order_imm/{conunt}_resize2.png')
     
     #Add Noise
     if np.random.uniform() < gaussian_noise_prob2:
         hr = gaussian_noise(hr, sigma_range2, gray_prob2)
     else:
         hr = poisson_noise(hr, scale_range2, gray_prob2)
-    #save_image(hr, 'noise2.png')
+    #save_image(hr, f'./img/high_order_imm/{conunt}_noise2.png')
     
     #JPEG
     kernel = random.choice([2 * i + 1 for i in range(3, 11)])
@@ -207,8 +207,8 @@ def high_order_degradation(hr, jpeger, sinc_prob1=0.1, sinc_prob2=0.1, resize_pr
         mode = random.choice(['area', 'bilinear', 'bicubic'])
         hr = F.interpolate(hr, size=(ori_h // 4, ori_w // 4), mode=mode)
         hr = sinc(hr)
-    #save_image(hr, 'jpeg2.png')
-    
+    #save_image(hr, f'./img/high_order/{conunt}_high_order.png')
+    conunt += 1
     return hr
 
 class ImageDataset(Dataset):
@@ -256,13 +256,39 @@ class Real_Dataset(Dataset):
                 transforms.ToTensor(),
             ]
         )
+        self.small = transforms.Compose(
+                [
+                    #transforms.Resize((hr_shape, hr_shape), Image.BICUBIC),
+                    transforms.ToTensor(),
+                ]
+        )
         self.files = sorted(glob.glob(root + "/*.*"))
     
     def __getitem__(self, index):
         img = Image.open(self.files[index % len(self.files)])
+        img = img.convert('RGB')
         img = self.random(img)
+        #img = self.small(img)
         return img
     
+    def __len__(self):
+        return len(self.files)
+
+class TestDataset(Dataset):
+    def __init__(self, root, hr_shape):
+        self.trans = transforms.Compose(
+                [
+                    transforms.ToTensor(),
+                ]
+        )
+        self.files = sorted(glob.glob(root + "/*.*"))
+
+    def __getitem__(self, index):
+        img = Image.open(self.files[index % len(self.files)])
+        img = img.convert('RGB')
+        img = self.trans(img)
+        return img
+
     def __len__(self):
         return len(self.files)
 #jpeger = DiffJPEG(differentiable=False)

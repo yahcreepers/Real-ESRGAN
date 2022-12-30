@@ -12,33 +12,40 @@ from model import *
 from module import *
 import torchvision.transforms as transforms
 from PIL import Image
-from dataset import ImageDataset, Real_Dataset, rgb2ycbcr_pt
+from dataset import ImageDataset, Real_Dataset, TestDataset, rgb2ycbcr_pt
 import random
 
 
 def main(args):
 
+    if args.do_predict:
+        dataset_name = TestDataset
+    elif args.real:
+        dataset_name = Real_Dataset
+    else:
+        dataset_name = ImageDataset
+
     if args.real:
         if isinstance(args.train_data_dir, list):
-            trainset = Real_Dataset(args.train_data_dir[0], args.hr_size)
+            trainset = dataset_name(args.train_data_dir[0], args.hr_size)
             for i in range(1, len(args.train_data_dir)):
-                trainset += Real_Dataset(args.train_data_dir[i], args.hr_size)
+                trainset += dataset_name(args.train_data_dir[i], args.hr_size)
         if isinstance(args.train_data_dir, str):
-            trainset = Real_Dataset(args.train_data_dir, args.hr_size)
-        validset = Real_Dataset(args.valid_data_dir, args.hr_size)
+            trainset = dataset_name(args.train_data_dir, args.hr_size)
+        validset = dataset_name(args.valid_data_dir, args.hr_size)
         generator = RRDBNet(3, 3, 64, 23, gc=32)
-        if args.do_train or args.do_pretrain:
+        if (args.do_train or args.do_pretrain or args.do_predict) and not args.checkpoint:
             generator.load_state_dict(torch.load(args.model_path))
         #discriminator = Discriminator((3, args.hr_size, args.hr_size))
         discriminator = UNetDiscriminatorSN(num_in_ch=3)
     else:
         if isinstance(args.train_data_dir, list):
-            trainset = ImageDataset(args.train_data_dir[0], args.hr_size)
+            trainset = dataset_name(args.train_data_dir[0], args.hr_size)
             for i in range(1, len(args.train_data_dir)):
-                trainset += ImageDataset(args.train_data_dir[i], args.hr_size)
+                trainset += dataset_name(args.train_data_dir[i], args.hr_size)
         if isinstance(args.train_data_dir, str):
-            trainset = ImageDataset(args.train_data_dir, args.hr_size)
-        validset = ImageDataset(args.valid_data_dir, args.hr_size)
+            trainset = dataset_name(args.train_data_dir, args.hr_size)
+        validset = dataset_name(args.valid_data_dir, args.hr_size)
         generator = Hyper_RRDBNet()
         discriminator = Discriminator((3, args.hr_size, args.hr_size))
         
@@ -70,8 +77,9 @@ def main(args):
         "validset": validset,
         "do_pretrain": args.do_pretrain,
         "lr": args.pretrain_lr if args.do_pretrain else args.lr,
-        "output_dir": f"{args.output_dir}/val_img",
+        "output_dir": f"{args.output_dir}",
         "accumulate": args.accumulate,
+        "load_lr": args.load_lr,
     }
     model = ESRGAN(**model_kwargs)
 #    model.load_state_dict(torch.load(args.model_path)["state_dict"])
@@ -85,8 +93,8 @@ def main(args):
             dirpath=f"{args.output_dir}/{name}",
             filename="{epoch}-{PSNR:.2f}",
             save_last=True,
-            every_n_epochs=args.eval_epoch,
             save_weights_only=True,
+            every_n_epochs=args.eval_epoch,
         )
         callbacks.append(checkpoint_callback)
     if args.do_pretrain:
@@ -102,6 +110,7 @@ def main(args):
         callbacks.append(checkpoint_callback)
     tb_logger = pl_loggers.TensorBoardLogger(save_dir=f"{args.output_dir}/{name}")
     trainer_kwargs = {
+        "max_epochs": args.epoch,
         "max_steps": args.pretrain_steps if args.do_pretrain else args.steps,
         "accelerator": "gpu",
         "check_val_every_n_epoch": args.eval_epoch,
@@ -119,6 +128,8 @@ def main(args):
         torch.save(model.G.state_dict(), f"{args.output_dir}/{name}/generator.pt")
         #generator.load_state_dict(torch.load(f"{args.output_dir}/{name}/gernerator.pt"))
     if args.do_train:
+        if args.checkpoint:
+            model.load_state_dict(torch.load(args.model_path)["state_dict"])
         if args.do_pretrain:
             model.lr = args.lr
             tb_logger = pl_loggers.TensorBoardLogger(save_dir=f"{args.output_dir}/GANtrain")
@@ -130,8 +141,10 @@ def main(args):
         trainer.fit(model)
     
     if args.do_predict:
-        if not args.do_train:
-            model.load_state_dict(torch.load(args.model_path)["state_dict"])
+        #if not args.do_train:
+        #    model.load_state_dict(torch.load(args.model_path)["state_dict"])
+        #    torch.save(model.G.state_dict(), f"model/Real-ESRGAN-v2.pt")
+        #    exit(0)
         trainer = pl.Trainer(**trainer_kwargs)
         trainer.test(model)
 
@@ -160,7 +173,8 @@ def parse_args():
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--steps", type=int, default=None)
     parser.add_argument("--accumulate", type=int, default=1)
-
+    parser.add_argument("--checkpoint", action="store_true")
+    parser.add_argument("--load_lr", action="store_true")
     args = parser.parse_args()
     return args
 
@@ -169,4 +183,3 @@ if __name__ == "__main__":
     args = parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
     main(args)
-

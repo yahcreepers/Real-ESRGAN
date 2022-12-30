@@ -55,3 +55,31 @@ CUDA_VISIBLE_DEVICES=0 python train.py \
 ```
 
 - During training, trainer will save the last model every eval_epoch.
+
+### Inference
+
+- To produce high-resolution images via our model.
+
+```shell
+CUDA_VISIBLE_DEVICES=$1 python train.py \
+	--real \
+	--do_predict \
+	--model_path model/Real-ESRGAN.pt \
+	--valid_data_dir data/Set14_HR \
+	--output_dir img/real_esrgan_high \
+	--steps 10000 \
+	--epoch 1 \
+	--batch_size 1
+```
+
+## Result
+
+![截圖 2022-12-30 下午5.08.41](/Users/yahcreeper/Desktop/截圖 2022-12-30 下午5.08.41.png)
+
+![截圖 2022-12-30 下午5.08.49](/Users/yahcreeper/Desktop/截圖 2022-12-30 下午5.08.49.png)
+
+![截圖 2022-12-30 下午5.08.56](/Users/yahcreeper/Desktop/截圖 2022-12-30 下午5.08.56.png)
+
+![截圖 2022-12-30 下午5.09.35](/Users/yahcreeper/Desktop/截圖 2022-12-30 下午5.09.35.png)
+
+![截圖 2022-12-30 下午5.09.54](/Users/yahcreeper/Desktop/截圖 2022-12-30 下午5.09.54.png)

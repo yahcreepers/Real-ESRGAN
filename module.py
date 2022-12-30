@@ -14,7 +14,7 @@ from dataset import denormalize, rgb2ycbcr_pt, high_order_degradation
 from torchvision.utils import make_grid, save_image
 
 class ESRGAN(pl.LightningModule):
-    def __init__(self, generator, discriminator, extractor, batch_size, lr, trainset, validset, real, do_pretrain, output_dir, gan_w=0.1, l1_w=1.0, accumulate=1):
+    def __init__(self, generator, discriminator, extractor, batch_size, lr, trainset, validset, load_lr, real, do_pretrain, output_dir, gan_w=0.1, l1_w=1.0, accumulate=1):
         super().__init__()
         self.G = generator
         self.D = discriminator
@@ -26,6 +26,7 @@ class ESRGAN(pl.LightningModule):
         self.valid_dataset = validset
         self.gan_w = gan_w
         self.l1_w = l1_w
+        self.load_lr = load_lr
         self.real = real
         self.do_pretrain = do_pretrain
         self.output_dir = output_dir
@@ -91,7 +92,6 @@ class ESRGAN(pl.LightningModule):
         
         loss_D = (loss_real + loss_fake) / 2
         
-        
         self.manual_backward(loss_D)
         if (batch_idx + 1) % self.accumulate == 0:
             d_opt.step()
@@ -115,6 +115,7 @@ class ESRGAN(pl.LightningModule):
             trans = torchvision.transforms.Resize((hr.shape[-2], hr.shape[-1]))
             nums = min(self.batch_size, 10)
             lrs = trans(lr[:nums])
+            lrs = torch.clamp(lrs, 0, 1)
             images = torch.concat((lrs, gen_hr[:nums], hr[:nums]), 0)
             if not self.real:
                 images = denormalize(images)
@@ -132,26 +133,37 @@ class ESRGAN(pl.LightningModule):
         return {"PSNR": avg_PSNR}
     
     def test_step(self, batch, batch_idx):
-        if self.real:
+        if self.load_lr:
+            lr = batch
+        elif self.real:
             hr = batch
-            #self.jpeger = self.jpeger.to(real_hr.device)
+            self.jpeger = self.jpeger.to(real_hr.device)
             lr = high_order_degradation(hr, self.jpeger)
+            #trans = torchvision.transforms.Resize((hr.shape[-2] // 4, hr.shape[-1] // 4))
+            #lr = trans(hr)
         else:
             lr, hr = batch
         
         gen_hr = self.G(lr)
         gen_hr = torch.clamp(gen_hr, 0, 1)
-        gen_yc = rgb2ycbcr_pt(gen_hr, True)
-        hr_yc = rgb2ycbcr_pt(hr, True)
-        psnr = self.psnr(gen_yc, hr_yc)
-        trans = torchvision.transforms.Resize((hr.shape[-2], hr.shape[-1]))
+        if not self.load_lr:
+            gen_yc = rgb2ycbcr_pt(gen_hr, True)
+            hr_yc = rgb2ycbcr_pt(hr, True)
+            psnr = self.psnr(gen_yc, hr_yc)
+        else:
+            psnr = 0
+        #print(gen_hr.shape, lr.shape)
+        trans = torchvision.transforms.Resize((gen_hr.shape[-2], gen_hr.shape[-1]))
         nums = min(self.batch_size, 10)
         lrs = trans(lr[:nums])
-        images = torch.concat((lrs, gen_hr[:nums], hr[:nums]), 0)
-        if not self.real:
-            images = denormalize(images)
-        grid = make_grid(images, nrow=nums)
-        save_image(grid, f"{self.output_dir}/{self.teststep}.png")
+        print(batch.shape, gen_hr.shape, lr.shape, lrs.shape)
+        save_image(gen_hr, f"./{self.output_dir}/{self.teststep}_gen.png")
+        save_image(lrs, f"./{self.output_dir}/{self.teststep}_lr.png")
+        #images = torch.concat((lrs, gen_hr[:nums], hr[:nums]), 0)
+        #if not self.real:
+        #    images = denormalize(images)
+        #grid = make_grid(images, nrow=nums)
+        #save_image(grid, f"{self.output_dir}/{self.teststep}.png")
         self.teststep += 1
         
         return {"PSNR": psnr}
